@@ -81,6 +81,8 @@ def parse_arguments():
     # Paths parameters
     parser.add_argument("--datasets_folder", type=str, default=None, help="Path with all datasets")
     parser.add_argument("--dataset_name", type=str, default="pitts30k", help="Relative path of the dataset")
+    parser.add_argument("--number_of_training_datasets", type=int, default=1, 
+                        help="number of different datasets used during training")
     parser.add_argument("--pca_dataset_folder", type=str, default=None,
                         help="Path with images to be used to compute PCA (ie: pitts30k/images/train")
     parser.add_argument("--save_dir", type=str, default="default",

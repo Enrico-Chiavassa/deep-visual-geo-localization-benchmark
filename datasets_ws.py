@@ -90,7 +90,7 @@ class BaseDataset(data.Dataset):
         self.database_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.database_paths]).astype(float)
         self.queries_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.queries_paths]).astype(float)
         
-        # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
+        # Find soft_positives_per_query, which are within val_positive_dist_threshold (default 25 meters)
         knn = NearestNeighbors(n_jobs=-1)
         knn.fit(self.database_utms)
         self.soft_positives_per_query = knn.radius_neighbors(self.queries_utms,
@@ -177,18 +177,21 @@ class TripletsDataset(BaseDataset):
         # Find hard_positives_per_query, which are within train_positives_dist_threshold (10 meters)
         knn = NearestNeighbors(n_jobs=-1)
         knn.fit(self.database_utms)
-        self.hard_positives_per_query = list(knn.radius_neighbors(self.queries_utms,
+        self.hard_positives_per_query = knn.radius_neighbors(self.queries_utms,
                                              radius=args.train_positives_dist_threshold,  # 10 meters
-                                             return_distance=False))
-        
+                                             return_distance=False)
+
         #### Some queries might have no positive, we should remove those queries.
         queries_without_any_hard_positive = np.where(np.array([len(p) for p in self.hard_positives_per_query], dtype=object) == 0)[0]
         if len(queries_without_any_hard_positive) != 0:
             logging.info(f"There are {len(queries_without_any_hard_positive)} queries without any positives " +
                          "within the training set. They won't be considered as they're useless for training.")
+            self.hard_positives_per_query = list(np.delete(self.hard_positives_per_query, queries_without_any_hard_positive))
+            self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
+        else:
+            logging.info(f"There are no queries without any positives within the training set.")
         # Remove queries without positives
-        self.hard_positives_per_query = np.delete(self.hard_positives_per_query, queries_without_any_hard_positive)
-        self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
+        
         
         # Recompute images_paths and queries_num because some queries might have been removed
         self.images_paths = list(self.database_paths) + list(self.queries_paths)

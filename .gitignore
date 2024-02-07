@@ -14,3 +14,9 @@ __MACOSX/
 # other
 pretrained
 *.pth
+
+logs/
+outputs/
+jobs/
+fine_tuning_launcher.py
+pipeline.sh
