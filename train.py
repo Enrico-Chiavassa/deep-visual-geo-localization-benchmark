@@ -140,8 +140,8 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         
         # images shape: (train_batch_size*12)*3*H*W ; by default train_batch_size=4, H=480, W=640
         # triplets_local_indexes shape: (train_batch_size*10)*3 ; because 10 triplets per query
+        i = 0
         for images, triplets_local_indexes, _ in tqdm(triplets_dl, ncols=100):
-            
             # Flip all triplets or none
             if args.horizontal_flip:
                 images = transforms.RandomHorizontalFlip()(images)
@@ -201,7 +201,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     recalls, recalls_str = test.test(args, val_ds, model)
     logging.info(f"Recalls on val set {val_ds}: {recalls_str}")
     
-    is_best = recalls[1] > best_r5
+    is_best = recalls[0] > best_r5
     
     # Save checkpoint, which contains all training parameters
     util.save_checkpoint(args, {
@@ -213,7 +213,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
     # If recall@5 did not improve for "many" epochs, stop training
     if is_best:
         logging.info(f"Improved: previous best R@5 = {best_r5:.1f}, current R@5 = {recalls[1]:.1f}")
-        best_r5 = recalls[1]
+        best_r5 = recalls[0]
         not_improved_num = 0
     else:
         not_improved_num += 1

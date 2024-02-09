@@ -74,7 +74,7 @@ class BaseDataset(data.Dataset):
         if not os.path.exists(self.dataset_folder):
             raise FileNotFoundError(f"Folder {self.dataset_folder} does not exist")
         
-        self.resize = args.resize
+        self.resize = args.resize[:1]
         self.test_method = args.test_method
         
         #### Read paths and UTM coordinates for all images.
@@ -153,6 +153,7 @@ class TripletsDataset(BaseDataset):
     """
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", negs_num_per_query=10):
         super().__init__(args, datasets_folder, dataset_name, split)
+        self.resize = args.resize[:1]
         self.mining = args.mining
         self.neg_samples_num = args.neg_samples_num  # Number of negatives to randomly sample
         self.negs_num_per_query = negs_num_per_query  # Number of negatives per query in each batch
@@ -163,15 +164,16 @@ class TripletsDataset(BaseDataset):
         identity_transform = T.Lambda(lambda x: x)
         self.resized_transform = T.Compose([
             T.Resize(self.resize) if self.resize is not None else identity_transform,
-            base_transform
+            base_transform,
+            T.RandomCrop(self.resize)
         ])
         
         self.query_transform = T.Compose([
-                T.ColorJitter(args.brightness, args.contrast, args.saturation, args.hue),
-                T.RandomPerspective(args.rand_perspective),
-                T.RandomResizedCrop(size=self.resize, scale=(1-args.random_resized_crop, 1)),
-                T.RandomRotation(degrees=args.random_rotation),
-                self.resized_transform,
+                # T.ColorJitter(args.brightness, args.contrast, args.saturation, args.hue),
+                # T.RandomPerspective(args.rand_perspective),
+                # T.RandomResizedCrop(size=self.resize, scale=(1-args.random_resized_crop, 1)),
+                # T.RandomRotation(degrees=args.random_rotation),
+                self.resized_transform
         ])
         
         # Find hard_positives_per_query, which are within train_positives_dist_threshold (10 meters)
