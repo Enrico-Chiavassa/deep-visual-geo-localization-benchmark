@@ -44,7 +44,6 @@ logging.info(f"Val set: {val_ds}")
 
 test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "test")
 logging.info(f"Test set: {test_ds}")
-logging.debug("before model {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
 
 #### Initialize model
 if args.backbone == "resnet18conv5":
@@ -100,10 +99,10 @@ if args.resume:
 else:
     best_r5 = start_epoch_num = not_improved_num = 0
 
-if args.backbone.startswith('vit'):
-    logging.info(f"Output dimension of the model is {args.features_dim}")
-else:
-    logging.info(f"Output dimension of the model is {args.features_dim}, with {util.get_flops(model, args.resize)}")
+# if args.backbone.startswith('vit'):
+#     logging.info(f"Output dimension of the model is {args.features_dim}")
+# else:
+#     logging.info(f"Output dimension of the model is {args.features_dim}, with {util.get_flops(model, args.resize)}")
 
 
 if torch.cuda.device_count() >= 2:
@@ -128,7 +127,6 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
         triplets_ds.is_inference = True
         triplets_ds.compute_triplets(args, model)
         triplets_ds.is_inference = False
-        logging.debug("after triplets {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
 
         triplets_dl = DataLoader(dataset=triplets_ds, num_workers=args.num_workers,
                                  batch_size=args.train_batch_size,
@@ -148,9 +146,7 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
             
             # Compute features of all images (images contains queries, positives and negatives)
             features = model(images.to(args.device))
-            logging.debug("after forward {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
             images = images.to("cpu")
-            logging.debug("after moving {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
 
             loss_triplet = 0
             
@@ -177,12 +173,9 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
                     loss_triplet += criterion_triplet(features[q_i:q_i+1], features[p_i:p_i+1], features[n_i:n_i+1])
             
             del features
-            logging.debug("After deleting {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
             loss_triplet /= (args.train_batch_size * args.negs_num_per_query)        
             optimizer.zero_grad()
-            logging.debug("after zero_grad{:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
             loss_triplet.backward()
-            logging.debug("after backward{:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
             optimizer.step()
             
             # Keep track of all losses by appending them to epoch_losses

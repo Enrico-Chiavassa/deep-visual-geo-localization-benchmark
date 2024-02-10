@@ -105,6 +105,7 @@ class BaseDataset(data.Dataset):
     def __getitem__(self, index):
         img = path_to_pil_img(self.images_paths[index])
         img = base_transform(img)
+
         # With database images self.test_method should always be "hard_resize"
         if self.test_method == "hard_resize":
             # self.test_method=="hard_resize" is the default, resizes all images to the same size.
@@ -252,16 +253,23 @@ class TripletsDataset(BaseDataset):
     def compute_cache(args, model, subset_ds, cache_shape):
         """Compute the cache containing features of images, which is used to
         find best positive and hardest negatives."""
-        subset_dl = DataLoader(dataset=subset_ds, num_workers=args.num_workers,
+        subset_dl = [DataLoader(dataset=subset_ds[0], num_workers=args.num_workers,
                                batch_size=args.infer_batch_size, shuffle=False,
-                               pin_memory=(args.device == "cuda"))
+                               pin_memory=(args.device == "cuda")),
+                    DataLoader(dataset=subset_ds[1], num_workers=args.num_workers,
+                               batch_size=args.infer_batch_size, shuffle=False,
+                               pin_memory=(args.device == "cuda"))]
         model = model.eval()
         
         # RAMEfficient2DMatrix can be replaced by np.zeros, but using
         # RAMEfficient2DMatrix is RAM efficient for full database mining.
         cache = RAMEfficient2DMatrix(cache_shape, dtype=np.float32)
         with torch.no_grad():
-            for images, indexes in tqdm(subset_dl, ncols=100):
+            for images, indexes in tqdm(subset_dl[0], ncols=100):
+                images = images.to(args.device)
+                features = model(images)
+                cache[indexes.numpy()] = features.cpu().numpy()
+            for images, indexes in tqdm(subset_dl[1], ncols=100):
                 images = images.to(args.device)
                 features = model(images)
                 cache[indexes.numpy()] = features.cpu().numpy()
@@ -367,7 +375,8 @@ class TripletsDataset(BaseDataset):
         database_indexes = list(sampled_database_indexes) + positives_indexes
         database_indexes = list(np.unique(database_indexes))
         
-        subset_ds = Subset(self, database_indexes + list(sampled_queries_indexes + self.database_num))
+        subset_ds = [Subset(self, database_indexes), Subset(self, list(sampled_queries_indexes + self.database_num))]
+
         cache = self.compute_cache(args, model, subset_ds, cache_shape=(len(self), args.features_dim))
         
         # This loop's iterations could be done individually in the __getitem__(). This way is slower but clearer (and yields same results)
