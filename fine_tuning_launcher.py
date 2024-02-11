@@ -1,16 +1,7 @@
 import os
 
 CONTENT = \
-"""#!/bin/bash 
-#SBATCH --job-name=EXP_NAME
-#SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=3
-#SBATCH --mem=30GB
-#SBATCH --time=48:00:00
-#SBATCH --output /home/echiavassa/deep-visual-geo-localization-benchmark/outputs/EXP_NAME/out.txt
-#SBATCH --error /home/echiavassa/deep-visual-geo-localization-benchmark/outputs/EXP_NAME/err.txt
-ml purge
-ml Python
+"""
 source /home/echiavassa/tesivenv/bin/activate
 
 DATASET_SUMMARY=DATASETS_STRING_SUMMARY
@@ -19,7 +10,7 @@ declare -a TRAINING_DATASETS=(DATASET_STRING)
 declare -a VALIDATION_DATASETS=(VAL_DATASET)
 declare -a TEST_DATASETS=(TEST_DATASET_NAME)
 
-HOME_PATH=/home/echiavassa
+HOME_PATH=/data/echiavassa
 DATASETS_PATH=/home/echiavassa/vg_datasets/datasets/${DATASET_SUMMARY}/images
 
 
@@ -87,7 +78,7 @@ dataset_queries = {
 }
 folder = "/home/echiavassa/deep-visual-geo-localization-benchmark"
 model_name = "eigenplaces_resnet50_2048"
-dataset_string_summaries = ["HB1-H4F-H1F-GB1-GB2_GB1_GB2"]
+dataset_string_summaries = ["GB1-HB1_H1F_GB2"]
 for dataset_string_summary in dataset_string_summaries:
     training_set_list = sorted(dataset_string_summary.split("_")[0].split("-"))
     dataset_string_len = str(len(training_set_list))
@@ -96,7 +87,7 @@ for dataset_string_summary in dataset_string_summaries:
     val_dataset = dataset_short_names[dataset_string_summary.split("_")[1]]
     test_dataset = dataset_short_names[dataset_string_summary.split("_")[2]]
     thresholds = ["10_25", "5_10", "2_5"]
-    for threshold in thresholds[:1]:
+    for threshold in thresholds:
         train_threshold, val_threshold = threshold.split("_")
         exp_name = threshold + "/" + dataset_string_summary + "/" + model_name
         content = CONTENT.replace("DATASETS_STRING_SUMMARY", dataset_string_summary)\
@@ -113,5 +104,5 @@ for dataset_string_summary in dataset_string_summaries:
         os.makedirs(f"{folder}/outputs/{exp_name}", exist_ok=True)
         with open(filename, "w") as file:
             _ = file.write(content)
-        _ = os.system(f"sbatch {filename}")
-        print(f"sbatch {filename}")
+        _ = os.system(f"bash {filename}")
+        print(f"bash {filename}")

@@ -96,7 +96,9 @@ class BaseDataset(data.Dataset):
         self.soft_positives_per_query = knn.radius_neighbors(self.queries_utms,
                                                              radius=args.val_positive_dist_threshold,
                                                              return_distance=False)
-        
+        self.positives_per_query = [knn.radius_neighbors(self.queries_utms,
+                                                    radius=x,
+                                                    return_distance=False) for x in args.test_positive_thresholds]
         self.images_paths = list(self.database_paths) + list(self.queries_paths)
         
         self.database_num = len(self.database_paths)
@@ -142,7 +144,7 @@ class BaseDataset(data.Dataset):
         return f"< {self.__class__.__name__}, {self.dataset_name} - #database: {self.database_num}; #queries: {self.queries_num} >"
     
     def get_positives(self):
-        return self.soft_positives_per_query
+        return self.positives_per_query
 
 
 class TripletsDataset(BaseDataset):

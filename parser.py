@@ -67,6 +67,8 @@ def parse_arguments():
     parser.add_argument("--efficient_ram_testing", action='store_true', help="_")
     parser.add_argument("--val_positive_dist_threshold", type=int, default=25, help="_")
     parser.add_argument("--train_positives_dist_threshold", type=int, default=10, help="_")
+    parser.add_argument("--test_positive_thresholds", type=int, default=[1, 5, 10, 25], nargs="+",
+                        help="Threshold (in meters) to use during testing")
     parser.add_argument('--recall_values', type=int, default=[1, 5, 10, 20], nargs="+",
                         help="Recalls to be computed, such as R@5.")
     # Data augmentation parameters

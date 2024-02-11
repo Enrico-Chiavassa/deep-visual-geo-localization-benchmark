@@ -1,4 +1,4 @@
-
+import random
 import faiss
 import torch
 import logging
@@ -120,7 +120,6 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
 
 def test(args, eval_ds, model, test_method="hard_resize", pca=None):
     """Compute features of the given dataset and compute the recalls."""
-    
     assert test_method in ["hard_resize", "single_query", "central_crop", "five_crops",
                            "nearest_crop", "maj_voting"], f"test_method can't be {test_method}"
     
@@ -222,17 +221,23 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
 
     #### For each query, check if the predictions are correct
     positives_per_query = eval_ds.get_positives()
-    # args.recall_values by default is [1, 5, 10, 20]
-    recalls = np.zeros(len(args.recall_values))
-    for query_index, pred in enumerate(predictions):
-        for i, n in enumerate(args.recall_values):
-            if np.any(np.in1d(pred[:n], positives_per_query[query_index])):
-                recalls[i:] += 1
-                break
-    # Divide by the number of queries*100, so the recalls are in percentages
-    recalls = recalls / eval_ds.queries_num * 100
-    recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    return recalls, recalls_str
+    all_recalls = []
+    recalls_str = ""
+    for thr_ind, threshold in enumerate(positives_per_query):
+        # args.recall_values by default is [1, 5, 10, 20]
+        recalls = np.zeros(len(args.recall_values))
+        for query_index, pred in enumerate(predictions):
+            for i, n in enumerate(args.recall_values):
+                if np.any(np.in1d(pred[:n], threshold[query_index])):
+                    recalls[i:] += 1
+                    break
+        # Divide by the number of queries*100, so the recalls are in percentages
+        recalls = recalls / eval_ds.queries_num * 100
+        recalls_str += f"Threshold {args.test_positive_thresholds[thr_ind]}m :" + \
+                        ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)]) + \
+                        "\n"
+        all_recalls.append(list(recalls))
+    return all_recalls, recalls_str
 
 
 def top_n_voting(topn, predictions, distances, maj_weight):
