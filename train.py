@@ -46,11 +46,15 @@ test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name,
 logging.info(f"Test set: {test_ds}")
 
 #### Initialize model
-if args.backbone == "resnet18conv5":
-    args.backbone = "ResNet50"
-logging.debug(f"Loading model from torch hub (gmberton/cosplace)")
-model = torch.hub.load("gmberton/eigenplaces", "get_trained_model", backbone=args.backbone, fc_output_dim=args.fc_output_dim)
-args.features_dim = network.get_output_channels_dim(model)
+
+if args.load_from_hub:
+    if args.backbone == "resnet18conv5":
+        args.backbone = "ResNet50"
+    logging.debug(f"Loading model from torch hub (gmberton/eigenplaces)")
+    model = torch.hub.load("gmberton/eigenplaces", "get_trained_model", backbone=args.backbone, fc_output_dim=args.fc_output_dim)
+    args.features_dim = network.get_output_channels_dim(model)
+else:
+    model = network.GeoLocalizationNet(args)
 model = model.to(args.device)
 logging.debug("post model {:.3f}MB allocated".format(torch.cuda.memory_allocated()/1024**2))
 

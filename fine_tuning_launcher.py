@@ -59,7 +59,7 @@ done
 python train.py --datasets_folder /home/echiavassa/vg_datasets/datasets --dataset_name ${DATASET_SUMMARY} --save_dir EXP_NAME \
         --queries_per_epoch QUERIES_PER_EPOCH --cache_refresh_rate QUERIES_PER_EPOCH --number_of_training_datasets ${NUMBER_OF_TRAINING_DATASETS} \
         --train_positives_dist_threshold TRAIN_THRESHOLD --val_positive_dist_threshold VAL_THRESHOLD \
-        --backbone resnet18conv5 --aggregation gem --fc_output_dim 2048 --num_workers 3 --train_batch_size 4
+        --backbone resnet18conv5 --aggregation gem --fc_output_dim 2048 --num_workers 3 --train_batch_size 4 --load_from_hub
 """
 
 dataset_short_names = {
@@ -78,7 +78,7 @@ dataset_queries = {
 }
 folder = "/home/echiavassa/deep-visual-geo-localization-benchmark"
 model_name = "eigenplaces_resnet50_2048"
-dataset_string_summaries = ["GB1-HB1_H1F_GB2"]
+dataset_string_summaries = ["GB1-HB1_H4F_GB2"]
 for dataset_string_summary in dataset_string_summaries:
     training_set_list = sorted(dataset_string_summary.split("_")[0].split("-"))
     dataset_string_len = str(len(training_set_list))
@@ -87,7 +87,7 @@ for dataset_string_summary in dataset_string_summaries:
     val_dataset = dataset_short_names[dataset_string_summary.split("_")[1]]
     test_dataset = dataset_short_names[dataset_string_summary.split("_")[2]]
     thresholds = ["10_25", "5_10", "2_5"]
-    for threshold in thresholds:
+    for threshold in thresholds[-2:]:
         train_threshold, val_threshold = threshold.split("_")
         exp_name = threshold + "/" + dataset_string_summary + "/" + model_name
         content = CONTENT.replace("DATASETS_STRING_SUMMARY", dataset_string_summary)\

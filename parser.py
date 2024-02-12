@@ -51,6 +51,7 @@ def parse_arguments():
                         help="Off-the-shelf networks from popular GitHub repos. Only with ResNet-50/101 + GeM + FC 2048")
     parser.add_argument("--trunc_te", type=int, default=None, choices=list(range(0, 14)))
     parser.add_argument("--freeze_te", type=int, default=None, choices=list(range(-1, 14)))
+    parser.add_argument("--load_from_hub", action='store_true', help="_")
     # Initialization parameters
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--resume", type=str, default=None,
