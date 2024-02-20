@@ -72,6 +72,8 @@ def parse_arguments():
                         help="Threshold (in meters) to use during testing")
     parser.add_argument('--recall_values', type=int, default=[1, 5, 10, 20], nargs="+",
                         help="Recalls to be computed, such as R@5.")
+    parser.add_argument("--visualize_triplets", action='store_true', 
+                        help="Every time the cache is computed, save an example of triplet")
     # Data augmentation parameters
     parser.add_argument("--brightness", type=float, default=0, help="_")
     parser.add_argument("--contrast", type=float, default=0, help="_")

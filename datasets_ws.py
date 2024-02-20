@@ -192,6 +192,7 @@ class TripletsDataset(BaseDataset):
             logging.info(f"There are {len(queries_without_any_hard_positive)} queries without any positives " +
                          "within the training set. They won't be considered as they're useless for training.")
             self.hard_positives_per_query = list(np.delete(self.hard_positives_per_query, queries_without_any_hard_positive))
+            self.soft_positives_per_query = list(np.delete(self.soft_positives_per_query, queries_without_any_hard_positive))
             self.queries_paths = np.delete(self.queries_paths, queries_without_any_hard_positive)
         else:
             logging.info(f"There are no queries without any positives within the training set.")
@@ -358,7 +359,7 @@ class TripletsDataset(BaseDataset):
             self.neg_cache[query_index] = neg_indexes
             self.triplets_global_indexes.append((query_index, best_positive_index, *neg_indexes))
         # self.triplets_global_indexes is a tensor of shape [1000, 12]
-        self.triplets_global_indexes = torch.tensor(self.triplets_global_indexes)
+        self.triplets_global_indexes = torch.tensor(self.triplets_global_indexes)            
     
     def compute_triplets_partial(self, args, model):
         self.triplets_global_indexes = []
@@ -388,13 +389,40 @@ class TripletsDataset(BaseDataset):
             
             # Choose the hardest negatives within sampled_database_indexes, ensuring that there are no positives
             soft_positives = self.soft_positives_per_query[query_index]
-            neg_indexes = np.setdiff1d(sampled_database_indexes, soft_positives, assume_unique=True)
+            neg_indexes = np.setdiff1d(sampled_database_indexes, soft_positives, assume_unique=False)
             
             # Take all database images that are negatives and are within the sampled database images (aka database_indexes)
             neg_indexes = self.get_hardest_negatives_indexes(args, cache, query_features, neg_indexes)
             self.triplets_global_indexes.append((query_index, best_positive_index, *neg_indexes))
         # self.triplets_global_indexes is a tensor of shape [1000, 12]
         self.triplets_global_indexes = torch.tensor(self.triplets_global_indexes)
+        if args.visualize_triplets:
+            if os.path.exists(f"{args.save_dir}/visualizations"):
+                last_epoch = sorted(os.listdir(f"{args.save_dir}/visualizations"))[-1]
+                self.visual_index = int(last_epoch[-2:]) + 1
+            else:
+                self.visual_index = 1
+            target_path = f"{args.save_dir}/visualizations/epoch{self.visual_index:02d}"
+            os.makedirs(target_path, exist_ok=True)
+            example = self.triplets_global_indexes[0]
+
+            query_path = self.queries_paths[example[0]]
+            query_name = query_path.split("/")[-1]
+            query_coords = "_".join(query_name.split("@")[1:3])
+            os.system(f"cp {query_path} {target_path}")
+            os.system(f"mv {target_path}/{query_name} {target_path}/query_{query_coords}_{example[0]}.png")
+
+            pos_path = self.database_paths[example[1]]
+            pos_name = pos_path.split("/")[-1]
+            pos_coords = "_".join(pos_name.split("@")[1:3])
+            os.system(f"cp {pos_path} {target_path}")
+            os.system(f"mv {target_path}/{pos_name} {target_path}/positive_{pos_coords}_{example[1]}.png")
+
+            for neg_index, neg_path in enumerate([self.database_paths[x] for x in example[2:]]):
+                neg_name = neg_path.split("/")[-1]
+                neg_coords = "_".join(neg_name.split("@")[1:3])
+                os.system(f"cp {neg_path} {target_path}")
+                os.system(f"mv {target_path}/{neg_name} {target_path}/negative{neg_index+1}_{neg_coords}_{example[neg_index+2]}.png")
 
 
 class RAMEfficient2DMatrix:

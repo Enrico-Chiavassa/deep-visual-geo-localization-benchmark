@@ -1,4 +1,5 @@
 
+import os
 import re
 import torch
 import shutil
@@ -8,7 +9,7 @@ import numpy as np
 from collections import OrderedDict
 from os.path import join
 from sklearn.decomposition import PCA
-
+from PIL import Image
 import datasets_ws
 
 
@@ -74,3 +75,26 @@ def compute_pca(args, model, pca_dataset_folder, full_features_dim):
     pca = PCA(args.pca_dim)
     pca.fit(pca_features)
     return pca
+
+def visualize_triplets(images_tensor, path):
+    for i in range(images_tensor.size(0)):
+        if i % 12 == 0:
+            name = f"image_{i}_query.png"
+        elif i % 12 == 1:
+            name = f"image_{i}_positive.png"
+        else:
+            name = f"image_{i}_negative.png"
+        # Get the i-th image tensor
+        image_tensor = images_tensor[i]
+        
+        # Convert the image tensor to a NumPy array
+        image_np = image_tensor.cpu().detach().numpy()
+        
+        # Reshape the array to HxWxC format (C for channels)
+        image_np = np.transpose(image_np, (1, 2, 0))
+        
+        # Convert the NumPy array to an image
+        image = Image.fromarray((image_np * 255).astype(np.uint8))
+        
+        # Save the image
+        image.save(os.path.join(path, name))

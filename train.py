@@ -48,7 +48,7 @@ logging.info(f"Test set: {test_ds}")
 #### Initialize model
 
 if args.load_from_hub:
-    if args.backbone == "resnet18conv5":
+    if args.backbone[-5:] == "conv5":
         args.backbone = "ResNet50"
     logging.debug(f"Loading model from torch hub (gmberton/eigenplaces)")
     model = torch.hub.load("gmberton/eigenplaces", "get_trained_model", backbone=args.backbone, fc_output_dim=args.fc_output_dim)

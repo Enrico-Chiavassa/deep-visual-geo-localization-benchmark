@@ -18,4 +18,4 @@ pretrained
 logs/
 outputs/
 jobs/
-./fine_tuning_launcher.py
+fine_tuning_launcher.py
