@@ -202,3 +202,24 @@ def get_output_channels_dim(model):
     """Return the number of channels in the output of a model."""
     return model(torch.ones([1, 3, 224, 224])).shape[1]
 
+def load_model_from_hub(name):
+    if name == "eigenplaces":
+        logging.debug(f"Loading model from torch hub (gmberton/eigenplaces)")
+        model = torch.hub.load("gmberton/eigenplaces", "get_trained_model", backbone="ResNet50", fc_output_dim=2048)
+    elif name == "salad":
+        logging.debug(f"Loading model from torch hub (serizba/salad)")
+        model = SaladWrapper()
+    return model
+
+class SaladWrapper(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = torch.hub.load("serizba/salad", "dinov2_salad", backbone="dinov2_vitb14", pretrained=True)
+    def forward(self, images):
+        b, c, h, w = images.shape
+        # DINO wants height and width as multiple of 14, therefore resize them
+        # to the nearest multiple of 14
+        h = round(h / 14) * 14
+        w = round(w / 14) * 14
+        images = torchvision.transforms.functional.resize(images, [h, w], antialias=True)
+        return self.model(images)

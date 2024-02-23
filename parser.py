@@ -32,6 +32,7 @@ def parse_arguments():
     parser.add_argument("--neg_samples_num", type=int, default=1000,
                         help="How many negatives to use to compute the hardest ones")
     parser.add_argument("--mining", type=str, default="partial", choices=["partial", "full", "random", "msls_weighted"])
+    parser.add_argument("--use_amp16", action='store_true', help="_")
     # Model parameters
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
@@ -51,7 +52,8 @@ def parse_arguments():
                         help="Off-the-shelf networks from popular GitHub repos. Only with ResNet-50/101 + GeM + FC 2048")
     parser.add_argument("--trunc_te", type=int, default=None, choices=list(range(0, 14)))
     parser.add_argument("--freeze_te", type=int, default=None, choices=list(range(-1, 14)))
-    parser.add_argument("--load_from_hub", action='store_true', help="_")
+    parser.add_argument("--load_from_hub", type=str, default=None, choices=["eigenplaces", "salad"],
+                        help="Select model to load from torch.hub. Overrides all other model arguments given.")
     # Initialization parameters
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--resume", type=str, default=None,
@@ -59,7 +61,7 @@ def parse_arguments():
     # Other parameters
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--num_workers", type=int, default=8, help="num_workers for all dataloaders")
-    parser.add_argument('--resize', type=int, default=[480, 640], nargs=2, help="Resizing shape for images (HxW).")
+    parser.add_argument('--resize', type=int, default=[406], nargs="+", help="Resizing shape for images (HxW).")
     parser.add_argument('--test_method', type=str, default="hard_resize",
                         choices=["hard_resize", "single_query", "central_crop", "five_crops", "nearest_crop", "maj_voting"],
                         help="This includes pre/post-processing methods and prediction refinement")
@@ -88,6 +90,8 @@ def parse_arguments():
     parser.add_argument("--dataset_name", type=str, default="pitts30k", help="Relative path of the dataset")
     parser.add_argument("--number_of_training_datasets", type=int, default=1, 
                         help="number of different datasets used during training")
+    parser.add_argument("--number_of_testing_datasets", type=int, default=1,
+                        help="number of different datasets to test the model on")
     parser.add_argument("--pca_dataset_folder", type=str, default=None,
                         help="Path with images to be used to compute PCA (ie: pitts30k/images/train")
     parser.add_argument("--save_dir", type=str, default="default",
@@ -140,5 +144,4 @@ def parse_arguments():
     if args.backbone == "vit":
         if args.aggregation not in ["cls", "gem", "netvlad"]:
             raise ValueError(f"ViT can't work with aggregation {args.aggregation}. Please use one among [netvlad, gem, cls]")
-
     return args

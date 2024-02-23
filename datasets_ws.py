@@ -70,11 +70,12 @@ class BaseDataset(data.Dataset):
         super().__init__()
         self.args = args
         self.dataset_name = dataset_name
+        self.split = split
         self.dataset_folder = join(datasets_folder, dataset_name, "images", split)
         if not os.path.exists(self.dataset_folder):
             raise FileNotFoundError(f"Folder {self.dataset_folder} does not exist")
         
-        self.resize = args.resize[:1]
+        self.resize = args.resize
         self.test_method = args.test_method
         
         #### Read paths and UTM coordinates for all images.
@@ -141,7 +142,7 @@ class BaseDataset(data.Dataset):
         return len(self.images_paths)
     
     def __repr__(self):
-        return f"< {self.__class__.__name__}, {self.dataset_name} - #database: {self.database_num}; #queries: {self.queries_num} >"
+        return f"< {self.__class__.__name__}, {self.dataset_name}, {self.split} - #database: {self.database_num}; #queries: {self.queries_num} >"
     
     def get_positives(self):
         return self.positives_per_query
@@ -156,7 +157,6 @@ class TripletsDataset(BaseDataset):
     """
     def __init__(self, args, datasets_folder="datasets", dataset_name="pitts30k", split="train", negs_num_per_query=10):
         super().__init__(args, datasets_folder, dataset_name, split)
-        self.resize = args.resize[:1]
         self.mining = args.mining
         self.neg_samples_num = args.neg_samples_num  # Number of negatives to randomly sample
         self.negs_num_per_query = negs_num_per_query  # Number of negatives per query in each batch
@@ -404,8 +404,8 @@ class TripletsDataset(BaseDataset):
                 self.visual_index = 1
             target_path = f"{args.save_dir}/visualizations/epoch{self.visual_index:02d}"
             os.makedirs(target_path, exist_ok=True)
-            example = self.triplets_global_indexes[0]
-
+            random_index_to_sample = np.random.randint(len(self.triplets_global_indexes))
+            example = self.triplets_global_indexes[random_index_to_sample]
             query_path = self.queries_paths[example[0]]
             query_name = query_path.split("/")[-1]
             query_coords = "_".join(query_name.split("@")[1:3])

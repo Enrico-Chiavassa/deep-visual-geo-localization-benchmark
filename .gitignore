@@ -19,3 +19,5 @@ logs/
 outputs/
 jobs/
 fine_tuning_launcher.py
+aggregated_train_launcher.py
+baidu_test.py

@@ -36,22 +36,22 @@ triplets_ds_all = []
 for i in range(args.number_of_training_datasets):
     logging.debug(f"Loading dataset {args.dataset_name} from folder {args.datasets_folder}")
     triplets_ds = datasets_ws.TripletsDataset(args, args.datasets_folder, args.dataset_name, f"train{i}", args.negs_num_per_query)
-    logging.info(f"Train query set: {triplets_ds}")
+    logging.info(f"Train query set {i}: {triplets_ds}")
     triplets_ds_all.append(triplets_ds)
 
 val_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "val")
 logging.info(f"Val set: {val_ds}")
 
-test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "test")
-logging.info(f"Test set: {test_ds}")
+test_ds_all = []
+for i in range(args.number_of_testing_datasets):
+    test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, f"test{i}")
+    logging.info(f"Test set: {test_ds}")
+    test_ds_all.append(test_ds)
 
 #### Initialize model
 
 if args.load_from_hub:
-    if args.backbone[-5:] == "conv5":
-        args.backbone = "ResNet50"
-    logging.debug(f"Loading model from torch hub (gmberton/eigenplaces)")
-    model = torch.hub.load("gmberton/eigenplaces", "get_trained_model", backbone=args.backbone, fc_output_dim=args.fc_output_dim)
+    model = network.load_model_from_hub(args.load_from_hub)
     args.features_dim = network.get_output_channels_dim(model)
 else:
     model = network.GeoLocalizationNet(args)
@@ -114,6 +114,9 @@ if torch.cuda.device_count() >= 2:
     model = convert_model(model)
     model = model.cuda()
 
+if args.use_amp16:
+    scaler = torch.cuda.amp.GradScaler()
+    logging.debug("Automatic mixed precision is activated")
 #### Training loop
 for epoch_num in range(start_epoch_num, args.epochs_num):
     triplets_ds = triplets_ds_all[epoch_num % args.number_of_training_datasets]
@@ -149,43 +152,58 @@ for epoch_num in range(start_epoch_num, args.epochs_num):
                 images = transforms.RandomHorizontalFlip()(images)
             
             # Compute features of all images (images contains queries, positives and negatives)
-            features = model(images.to(args.device))
-            images = images.to("cpu")
-
-            loss_triplet = 0
-            
-            if args.criterion == "triplet":
-                triplets_local_indexes = torch.transpose(
-                    triplets_local_indexes.view(args.train_batch_size, args.negs_num_per_query, 3), 1, 0)
-                for triplets in triplets_local_indexes:
-                    queries_indexes, positives_indexes, negatives_indexes = triplets.T
-                    loss_triplet += criterion_triplet(features[queries_indexes],
-                                                      features[positives_indexes],
-                                                      features[negatives_indexes])
-            elif args.criterion == 'sare_joint':
-                # sare_joint needs to receive all the negatives at once
-                triplet_index_batch = triplets_local_indexes.view(args.train_batch_size, 10, 3)
-                for batch_triplet_index in triplet_index_batch:
-                    q = features[batch_triplet_index[0, 0]].unsqueeze(0)  # obtain query as tensor of shape 1xn_features
-                    p = features[batch_triplet_index[0, 1]].unsqueeze(0)  # obtain positive as tensor of shape 1xn_features
-                    n = features[batch_triplet_index[:, 2]]               # obtain negatives as tensor of shape 10xn_features
-                    loss_triplet += criterion_triplet(q, p, n)
-            elif args.criterion == "sare_ind":
-                for triplet in triplets_local_indexes:
-                    # triplet is a 1-D tensor with the 3 scalars indexes of the triplet
-                    q_i, p_i, n_i = triplet
-                    loss_triplet += criterion_triplet(features[q_i:q_i+1], features[p_i:p_i+1], features[n_i:n_i+1])
-            
-            del features
-            loss_triplet /= (args.train_batch_size * args.negs_num_per_query)        
             optimizer.zero_grad()
-            loss_triplet.backward()
-            optimizer.step()
-            
+            loss_triplet = 0
+            if not args.use_amp16:
+                features = model(images.to(args.device))
+                images = images.to("cpu")
+                if args.criterion == "triplet":
+                    triplets_local_indexes = torch.transpose(
+                        triplets_local_indexes.view(args.train_batch_size, args.negs_num_per_query, 3), 1, 0)
+                    for triplets in triplets_local_indexes:
+                        queries_indexes, positives_indexes, negatives_indexes = triplets.T
+                        loss_triplet += criterion_triplet(features[queries_indexes],
+                                                        features[positives_indexes],
+                                                        features[negatives_indexes])
+                elif args.criterion == 'sare_joint':
+                    # sare_joint needs to receive all the negatives at once
+                    triplet_index_batch = triplets_local_indexes.view(args.train_batch_size, 10, 3)
+                    for batch_triplet_index in triplet_index_batch:
+                        q = features[batch_triplet_index[0, 0]].unsqueeze(0)  # obtain query as tensor of shape 1xn_features
+                        p = features[batch_triplet_index[0, 1]].unsqueeze(0)  # obtain positive as tensor of shape 1xn_features
+                        n = features[batch_triplet_index[:, 2]]               # obtain negatives as tensor of shape 10xn_features
+                        loss_triplet += criterion_triplet(q, p, n)
+                elif args.criterion == "sare_ind":
+                    for triplet in triplets_local_indexes:
+                        # triplet is a 1-D tensor with the 3 scalars indexes of the triplet
+                        q_i, p_i, n_i = triplet
+                        loss_triplet += criterion_triplet(features[q_i:q_i+1], features[p_i:p_i+1], features[n_i:n_i+1])
+                
+                del features
+                loss_triplet /= (args.train_batch_size * args.negs_num_per_query)        
+                loss_triplet.backward()
+                optimizer.step()
+            else:
+                with torch.cuda.amp.autocast():
+                    features = model(images.to(args.device))
+                    images = images.to("cpu")
+                    triplets_local_indexes = torch.transpose(
+                        triplets_local_indexes.view(args.train_batch_size, args.negs_num_per_query, 3), 1, 0)
+                    for triplets in triplets_local_indexes:
+                        queries_indexes, positives_indexes, negatives_indexes = triplets.T
+                        loss_triplet += criterion_triplet(features[queries_indexes],
+                                                        features[positives_indexes],
+                                                        features[negatives_indexes])
+                    del features
+                    loss_triplet /= (args.train_batch_size * args.negs_num_per_query)
+                    scaler.scale(loss_triplet).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
             # Keep track of all losses by appending them to epoch_losses
             batch_loss = loss_triplet.item()
             epoch_losses = np.append(epoch_losses, batch_loss)
             del loss_triplet
+
         
         logging.debug(f"Epoch[{epoch_num:02d}]({loop_num}/{loops_num}): " +
                       f"current batch triplet loss = {batch_loss:.4f}, " +
@@ -227,5 +245,6 @@ logging.info(f"Trained for {epoch_num+1:02d} epochs, in total in {str(datetime.n
 best_model_state_dict = torch.load(join(args.save_dir, "best_model.pth"))["model_state_dict"]
 model.load_state_dict(best_model_state_dict)
 
-recalls, recalls_str = test.test(args, test_ds, model, test_method=args.test_method)
-logging.info(f"Recalls on {test_ds}: {recalls_str}")
+for i in range(args.number_of_testing_datasets):
+    recalls, recalls_str = test.test(args, test_ds_all[i], model, test_method=args.test_method)
+    logging.info(f"Recalls on test {i}: {recalls_str}")
