@@ -144,4 +144,7 @@ def parse_arguments():
     if args.backbone == "vit":
         if args.aggregation not in ["cls", "gem", "netvlad"]:
             raise ValueError(f"ViT can't work with aggregation {args.aggregation}. Please use one among [netvlad, gem, cls]")
+    if args.load_from_hub:
+        args.backbone = None
+        args.aggregation = None
     return args
