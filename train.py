@@ -20,6 +20,7 @@ from model import network
 from model.sync_batchnorm import convert_model
 from model.functional import sare_ind, sare_joint
 
+torch.cuda.empty_cache()
 torch.backends.cudnn.benchmark = True  # Provides a speedup
 #### Initial setup: parser, logging...
 args = parser.parse_arguments()

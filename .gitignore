@@ -16,6 +16,7 @@ pretrained
 *.pth
 
 logs/
+logs_old/
 outputs/
 jobs/
 fine_tuning_launcher.py
